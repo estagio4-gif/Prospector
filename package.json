@@ -1,0 +1,20 @@
+{
+  "name": "prospector-tributario",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Webapp de prospecção jurídico-tributária a partir de CNPJ",
+  "scripts": {
+    "start": "npx serve . -l 3000",
+    "dev": "npx serve . -l 3000",
+    "check": "for f in *.js; do node --check \"$f\"; done"
+  },
+  "keywords": [
+    "tributario",
+    "cnpj",
+    "prospeccao",
+    "advocacia",
+    "claude"
+  ],
+  "author": "",
+  "license": "UNLICENSED"
+}

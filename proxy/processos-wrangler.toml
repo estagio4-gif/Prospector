@@ -1,0 +1,12 @@
+# Worker do proxy de PROCESSOS (Jusbrasil). Deploy: wrangler deploy -c processos-wrangler.toml
+# (ou renomeie para wrangler.toml em uma pasta separada).
+
+name = "prospector-processos"
+main = "processos-worker.js"
+compatibility_date = "2024-11-01"
+
+[vars]
+ALLOWED_ORIGIN = "*"
+
+# Token do Jusbrasil Consulta PRO — segredo, NÃO vai aqui:
+#   wrangler secret put JUSBRASIL_TOKEN

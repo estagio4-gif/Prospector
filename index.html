@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Análise jurídico-tributária de CNPJ para prospecção de clientes em advocacia tributária. Dados públicos da Receita Federal e teses de recuperação de créditos." />
+  <meta name="theme-color" content="#1e3a8a" />
+  <title>Prospector Tributário — Análise de CNPJ</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo-mark" aria-hidden="true"></div>
+      <div class="brand-text">
+        <h1>Prospector Tributário</h1>
+        <span class="tagline">Inteligência jurídica para advocacia tributária</span>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button id="btnTheme" class="icon-btn" title="Alternar tema claro/escuro" aria-label="Alternar tema">🌙</button>
+      <button id="btnMetricas" class="btn-ghost" title="Métricas de uso (piloto)">📊 Métricas</button>
+      <button id="btnConfig" class="btn-ghost" title="Configurar chave de API">⚙ Configurações</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <span class="hero-kicker">MVP · Dados públicos · Zero armazenamento</span>
+      <h2>Qualifique leads tributários <span class="accent">a partir do CNPJ</span></h2>
+      <p class="lead">
+        Insira o CNPJ de uma empresa-alvo. O sistema consulta dados públicos da Receita Federal,
+        classifica o perfil tributário e identifica teses de recuperação de créditos aplicáveis,
+        com narrativa pronta para abordagem comercial.
+      </p>
+    </section>
+
+    <div class="features-row">
+      <div class="feature">
+        <div class="feature-icon">⚖</div>
+        <div class="feature-text">
+          <strong>10+ teses catalogadas</strong>
+          <span>STF Tema 69, INSS rubricas, PIS/COFINS insumos e mais</span>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-text">
+          <strong>Pré-processamento em JS</strong>
+          <span>Filtros determinísticos antes da IA — ~R$ 0,003/consulta</span>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🔒</div>
+        <div class="feature-text">
+          <strong>100% client-side</strong>
+          <span>Chave de API local; nenhum dado sai do navegador</span>
+        </div>
+      </div>
+    </div>
+
+    <section class="card form-card">
+      <form id="formCnpj" autocomplete="off">
+        <label for="cnpjInput">CNPJ da empresa-alvo</label>
+        <div class="input-row">
+          <input
+            id="cnpjInput"
+            type="text"
+            inputmode="numeric"
+            placeholder="00.000.000/0000-00"
+            maxlength="18"
+            required
+            spellcheck="false"
+          />
+          <button type="submit" id="btnAnalisar" class="btn-primary">Analisar →</button>
+        </div>
+        <div class="input-extra">
+          <label for="faturamentoInput">Faturamento anual estimado <span class="opcional">(opcional — habilita estimativa de crédito em R$)</span></label>
+          <input
+            id="faturamentoInput"
+            type="text"
+            inputmode="numeric"
+            placeholder="Ex.: 5.000.000"
+            spellcheck="false"
+          />
+        </div>
+        <div class="chip-row" id="exemploChips">
+          <span class="chip-row-label">Exemplos:</span>
+          <button type="button" class="chip" data-cnpj="60.701.190/0001-04">Itaú Unibanco</button>
+          <button type="button" class="chip" data-cnpj="33.000.167/0001-01">Petrobras</button>
+          <button type="button" class="chip" data-cnpj="47.960.950/0001-21">Magazine Luiza</button>
+        </div>
+        <p class="hint">Dados consultados em APIs públicas. Nenhum CNPJ é armazenado em servidor.</p>
+      </form>
+    </section>
+
+    <section id="statusBox" class="status-box hidden" role="status" aria-live="polite">
+      <div class="loader"></div>
+      <p id="statusMsg">Consultando dados…</p>
+    </section>
+
+    <section id="reportContainer" class="hidden">
+      <!-- Relatório injetado por JS -->
+    </section>
+  </main>
+
+  <!-- Modal de configurações -->
+  <div id="configModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="configTitle">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="configTitle">Configurações</h3>
+        <button id="closeConfig" class="icon-btn" aria-label="Fechar">✕</button>
+      </div>
+      <div class="modal-body">
+        <label for="apiKeyInput">Chave da API Anthropic (Claude)</label>
+        <input
+          id="apiKeyInput"
+          type="password"
+          placeholder="sk-ant-..."
+          autocomplete="off"
+        />
+        <p class="hint">
+          A chave é salva apenas no seu navegador (localStorage). Nunca sai do seu dispositivo.
+          Obtenha em <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a>.
+        </p>
+
+        <label class="checkbox-row">
+          <input type="checkbox" id="usarIA" checked />
+          <span>Gerar narrativa com IA (Claude Haiku) — custo ~R$ 0,003/consulta</span>
+        </label>
+
+        <label for="transpProxyInput" style="margin-top: 16px;">URL do proxy do Portal da Transparência (opcional)</label>
+        <input
+          id="transpProxyInput"
+          type="url"
+          placeholder="https://seu-worker.workers.dev"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <p class="hint">
+          Habilita a seção de sanções (CEIS/CNEP/CEPIM) e contratos federais por CNPJ.
+          Como a API da CGU exige token e não permite chamadas direto do navegador,
+          aponte para o seu proxy serverless (veja <code>proxy/transparencia-worker.js</code>).
+          O token fica no proxy — nunca no navegador.
+        </p>
+
+        <label for="procProxyInput" style="margin-top: 16px;">URL do proxy de processos / Jusbrasil (opcional)</label>
+        <input
+          id="procProxyInput"
+          type="url"
+          placeholder="https://seu-worker-processos.workers.dev"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <p class="hint">
+          Habilita a seção de processos e a marcação de teses "já ajuizadas".
+          Requer contrato Jusbrasil (Consulta PRO) e o proxy serverless
+          (veja <code>proxy/processos-worker.js</code>). O token fica no proxy.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button id="closeConfig2" class="btn-ghost">Cancelar</button>
+        <button id="saveConfig" class="btn-primary">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de métricas (piloto) -->
+  <div id="metricasModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="metricasTitle">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="metricasTitle">Métricas de uso (piloto)</h3>
+        <button id="closeMetricas" class="icon-btn" aria-label="Fechar">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="hint">Agregados anônimos deste navegador — nenhum CNPJ é armazenado. Use para reportar a tração do piloto.</p>
+        <pre id="metricasBody" class="metricas-pre"></pre>
+      </div>
+      <div class="modal-footer">
+        <button id="zerarMetricas" class="btn-ghost">Zerar</button>
+        <button id="copiarMetricas" class="btn-primary">📋 Copiar métricas</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <p>MVP para prospecção jurídico-tributária · Dados públicos da Receita Federal via BrasilAPI · Sem armazenamento de CNPJ · BYOK (Bring Your Own Key)</p>
+  </footer>
+
+  <!-- Ordem de carregamento importa: dados → motor → APIs → IA → app -->
+  <script src="cnaes.js"></script>
+  <script src="juntas.js"></script>
+  <script src="teses.js"></script>
+  <script src="engine.js"></script>
+  <script src="api.js"></script>
+  <script src="transparencia.js"></script>
+  <script src="processos.js"></script>
+  <script src="metricas.js"></script>
+  <script src="ai.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# Configuração do Cloudflare Worker que faz proxy da API do Portal da Transparência.
+# Deploy: wrangler deploy   (a partir desta pasta)
+
+name = "prospector-transparencia"
+main = "transparencia-worker.js"
+compatibility_date = "2024-11-01"
+
+# Trave a origem que pode usar o proxy (recomendado em produção).
+# Em desenvolvimento local pode deixar "*". Ex.: "https://seu-app.pages.dev"
+[vars]
+ALLOWED_ORIGIN = "*"
+
+# O token da CGU NÃO vai aqui — é um segredo:
+#   wrangler secret put PORTAL_API_TOKEN

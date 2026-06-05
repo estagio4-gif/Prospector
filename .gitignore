@@ -1,0 +1,39 @@
+# Dependências
+node_modules/
+package-lock.json
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores e IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+
+# Variáveis de ambiente (se um dia houver backend)
+.env
+.env.local
+.env.*.local
+
+# Tokens dos proxies locais (NUNCA versionar segredos)
+proxy/*token*.txt
+proxy/portal_token.txt
+proxy/jusbrasil_token.txt
+
+# Arquivos de teste local
+test-engine.js
+test-*.js
+scratch/
+
+# Build (se um dia houver bundler)
+dist/
+build/
+.cache/
