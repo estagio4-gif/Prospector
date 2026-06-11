@@ -28,6 +28,7 @@
   const usarIA = $("usarIA");
   const transpProxyInput = $("transpProxyInput");
   const procProxyInput = $("procProxyInput");
+  const econoProxyInput = $("econoProxyInput");
 
   const btnMetricas = $("btnMetricas");
   const metricasModal = $("metricasModal");
@@ -49,6 +50,8 @@
     set transpProxy(v) { if (window.TRANSPARENCIA) window.TRANSPARENCIA.setProxyUrl(v); },
     get procProxy() { return window.PROCESSOS ? window.PROCESSOS.getProxyUrl() : ""; },
     set procProxy(v) { if (window.PROCESSOS) window.PROCESSOS.setProxyUrl(v); },
+    get econoProxy() { return window.ECONODATA ? window.ECONODATA.getProxyUrl() : ""; },
+    set econoProxy(v) { if (window.ECONODATA) window.ECONODATA.setProxyUrl(v); },
   };
 
   // ---------- Tema (light/dark) ----------
@@ -99,6 +102,7 @@
     usarIA.checked = CFG.usarIA;
     if (transpProxyInput) transpProxyInput.value = CFG.transpProxy;
     if (procProxyInput) procProxyInput.value = CFG.procProxy;
+    if (econoProxyInput) econoProxyInput.value = CFG.econoProxy;
     configModal.classList.remove("hidden");
   }
   function fecharModal() { configModal.classList.add("hidden"); }
@@ -120,6 +124,7 @@
     CFG.usarIA = usarIA.checked;
     if (transpProxyInput) CFG.transpProxy = transpProxyInput.value.trim();
     if (procProxyInput) CFG.procProxy = procProxyInput.value.trim();
+    if (econoProxyInput) CFG.econoProxy = econoProxyInput.value.trim();
     fecharModal();
     setStatus("Configurações salvas.", false);
     setTimeout(() => statusBox.classList.add("hidden"), 1500);
@@ -457,8 +462,48 @@
     return `<div class="fact-fonte">Confirmar na fonte oficial: <a href="${j.url}" target="_blank" rel="noopener" title="${escapeHtml(j.nome)} — emitir certidão simplificada">${escapeHtml(j.sigla)} · certidão simplificada ↗</a></div>`;
   }
 
+  function renderEconodata(e) {
+    if (!e || e.erro) return "";
+    const cards = [];
+
+    if (e.decisores && e.decisores.length) {
+      const lis = e.decisores.slice(0, 6).map((d) => {
+        const cargo = [d.cargo, d.nivel].filter(Boolean).join(" · ");
+        const li = d.linkedin ? ` · <a href="${escapeHtml(d.linkedin)}" target="_blank" rel="noopener">LinkedIn ↗</a>` : "";
+        return `<div class="econo-decisor"><span class="econo-nome">${escapeHtml(d.nome || "—")}</span>${cargo ? ` <span class="econo-cargo">${escapeHtml(cargo)}</span>` : ""}${li}</div>`;
+      }).join("");
+      cards.push(`<div class="econo-bloco"><div class="econo-titulo">👤 Decisores</div>${lis}</div>`);
+    }
+
+    if (e.telefones && e.telefones.length) {
+      const tl = e.telefones.slice(0, 5).map((t) => {
+        const raw = (t.numero || "").replace(/\D/g, "");
+        const tag = t.assertividade ? `<span class="contato-tag contato-tag-${t.assertividade === "alta" ? "celular" : "fixo"}">${escapeHtml(t.assertividade)}</span>` : "";
+        return `<div class="contato-valor"><a href="tel:+55${raw}">${escapeHtml(t.numero)}</a> ${tag}</div>`;
+      }).join("");
+      cards.push(`<div class="econo-bloco"><div class="econo-titulo">📞 Telefones (por assertividade)</div>${tl}</div>`);
+    }
+
+    if (e.emails && e.emails.length) {
+      const el = e.emails.slice(0, 5).map((m) =>
+        `<div class="contato-valor"><a href="mailto:${escapeHtml(m.email)}">${escapeHtml(m.email)}</a>${m.assertividade ? ` <span class="econo-cargo">${escapeHtml(m.assertividade)}</span>` : ""}</div>`
+      ).join("");
+      cards.push(`<div class="econo-bloco"><div class="econo-titulo">✉ E-mails enriquecidos</div>${el}</div>`);
+    }
+
+    const facts = [];
+    if (e.faturamentoPresumido) facts.push(`<div class="fact"><div class="fact-label">Faturamento presumido</div><div class="fact-value">${fmtBRL(Number(e.faturamentoPresumido))}</div></div>`);
+    if (e.funcionariosEstimados) facts.push(`<div class="fact"><div class="fact-label">Funcionários (estim.)</div><div class="fact-value">${escapeHtml(String(e.funcionariosEstimados))}</div></div>`);
+    if (e.porteEstimado) facts.push(`<div class="fact"><div class="fact-label">Porte estimado</div><div class="fact-value">${escapeHtml(e.porteEstimado)}</div></div>`);
+    if (e.pat && e.pat.funcionarios) facts.push(`<div class="fact"><div class="fact-label">PAT — funcionários</div><div class="fact-value">${escapeHtml(String(e.pat.funcionarios))}</div></div>`);
+    const factsHtml = facts.length ? `<div class="fact-grid">${facts.join("")}</div>` : "";
+
+    if (!cards.length && !factsHtml) return `<p class="hint">Sem dados de enriquecimento para este CNPJ.</p>`;
+    return `${factsHtml}${cards.length ? `<div class="econo-grid">${cards.join("")}</div>` : ""}`;
+  }
+
   // ---------- Renderização do relatório ----------
-  function renderRelatorio(contexto, teses, narrativa, risco, whois, transparencia, processos) {
+  function renderRelatorio(contexto, teses, narrativa, risco, whois, transparencia, processos, econodata) {
     const top = teses.slice(0, 8);
     const faturamento = contexto.faturamentoInformado || 0;
     let totalCentral = 0;
@@ -585,12 +630,17 @@ ${processos ? `
           ${renderProcessos(processos)}
         </section>` : ""}
 
+${(econodata && !econodata.erro) ? `
+        <section class="report-section">
+          <h4>Decisores e contato premium <span style="color: var(--muted); font-weight: 500; text-transform: none; letter-spacing: 0; font-size: 11.5px;">(Econodata)</span></h4>
+          ${renderEconodata(econodata)}
+        </section>` : `
         <section class="report-section">
           <h4>Heads &amp; decisores <span style="color: var(--muted); font-weight: 500; text-transform: none; letter-spacing: 0; font-size: 11.5px;">(fonte externa)</span></h4>
           ${renderLocked(
             "C-Level e principais decisores",
-            "Diretor financeiro, contábil, jurídico e tributário — incluindo LinkedIn, e-mail e função. Dado não disponível em fontes públicas; requer integração com base comercial (Econodata, Cortex, Apollo).",
-            "Conectar fonte comercial"
+            "Diretor financeiro, contábil, jurídico e tributário — incluindo LinkedIn, e-mail e função. Conecte o proxy da Econodata em Configurações para preencher.",
+            "Conectar Econodata"
           )}
         </section>
 
@@ -598,10 +648,10 @@ ${processos ? `
           <h4>Contato do financeiro <span style="color: var(--muted); font-weight: 500; text-transform: none; letter-spacing: 0; font-size: 11.5px;">(fonte externa)</span></h4>
           ${renderLocked(
             "Departamento financeiro / fiscal",
-            "Telefone e e-mail direto do financeiro/fiscal/contabilidade, fora do canal cadastral. Requer base de inteligência comercial paga.",
-            "Conectar fonte comercial"
+            "Telefone e e-mail direto do financeiro/fiscal/contabilidade. Conecte o proxy da Econodata em Configurações para preencher.",
+            "Conectar Econodata"
           )}
-        </section>
+        </section>`}
 
         <section class="report-section">
           <h4>Teses tributárias aderentes (ranqueadas)</h4>
@@ -773,6 +823,14 @@ ${processos ? `
           })
         : Promise.resolve(null);
 
+      // Enriquecimento premium (Econodata via proxy). Best-effort.
+      const econoPromise = (window.ECONODATA && window.ECONODATA.disponivel())
+        ? window.ECONODATA.consultar(cnpj).catch((e) => {
+            console.warn("Econodata falhou:", e);
+            return null;
+          })
+        : Promise.resolve(null);
+
       let narrativa;
       if (CFG.usarIA && CFG.apiKey) {
         setStatus("Gerando narrativa com IA (Claude Haiku)…");
@@ -800,8 +858,14 @@ ${processos ? `
         window.ENGINE.analisarProcessos(processos).flags.forEach((f) => risco.flags.push(f));
       }
 
+      const econodata = await econoPromise;
+      // Se a Econodata trouxe faturamento e o usuário não informou, usa para a estimativa de crédito.
+      if (econodata && econodata.faturamentoPresumido && !contexto.faturamentoInformado) {
+        contexto.faturamentoInformado = Number(econodata.faturamentoPresumido) || 0;
+      }
+
       hideStatus();
-      renderRelatorio(contexto, teses, narrativa, risco, whois, transparencia, processos);
+      renderRelatorio(contexto, teses, narrativa, risco, whois, transparencia, processos, econodata);
 
       // Métricas (piloto) — agregados anônimos, sem CNPJ.
       if (window.METRICAS) {

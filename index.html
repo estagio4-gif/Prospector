@@ -162,6 +162,21 @@
           Requer contrato Jusbrasil (Consulta PRO) e o proxy serverless
           (veja <code>proxy/processos-worker.js</code>). O token fica no proxy.
         </p>
+
+        <label for="econoProxyInput" style="margin-top: 16px;">URL do proxy de enriquecimento / Econodata (opcional)</label>
+        <input
+          id="econoProxyInput"
+          type="url"
+          placeholder="https://seu-proxy.workers.dev ou http://localhost:8787"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <p class="hint">
+          Habilita decisores + LinkedIn, melhor telefone validado, faturamento e
+          funcionários presumidos. Requer plano Econodata com API (token
+          <code>x-api-token</code> no proxy — veja <code>proxy/local-proxy.py</code>).
+          Consome 1 crédito por empresa.
+        </p>
       </div>
       <div class="modal-footer">
         <button id="closeConfig2" class="btn-ghost">Cancelar</button>
@@ -200,6 +215,7 @@
   <script src="api.js"></script>
   <script src="transparencia.js"></script>
   <script src="processos.js"></script>
+  <script src="econodata.js"></script>
   <script src="metricas.js"></script>
   <script src="ai.js"></script>
   <script src="app.js"></script>

@@ -826,6 +826,23 @@ input:focus, textarea:focus {
   margin: 8px 0 0;
 }
 
+/* Enriquecimento Econodata */
+.econo-grid { display: grid; gap: 12px; margin-top: 10px; }
+.econo-bloco {
+  padding: 10px 14px;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+}
+.econo-titulo { font-size: 12px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
+.econo-decisor { font-size: 13px; padding: 4px 0; }
+.econo-decisor + .econo-decisor { border-top: 1px dashed var(--line); }
+.econo-nome { font-weight: 600; color: var(--ink); }
+.econo-cargo { font-size: 11.5px; color: var(--muted); }
+.econo-decisor a { color: var(--accent); border-bottom: 1px dashed var(--accent); }
+.econo-decisor a:hover { text-decoration: none; opacity: .8; }
+
 /* ===== Domínio (whois) ===== */
 .dominio-card {
   display: flex;

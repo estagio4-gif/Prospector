@@ -136,6 +136,16 @@ Ordem de carregamento (importante):
    sob o Capital Social, um deep-link "certidão simplificada" da Junta do estado
    (fé pública) para confirmação manual em 1 clique.
 
+14. **Econodata (enriquecimento premium) via proxy.** `econodata.js` consulta a
+   API v3 (`POST /v3/companies`, header `x-api-token`, 1 crédito/empresa) através
+   de um proxy que devolve formato normalizado. Preenche o que as fontes públicas
+   não têm: melhor telefone (por assertividade), decisor + LinkedIn, e-mail
+   validado, faturamento e funcionários presumidos, PAT. Quando presente,
+   substitui as seções 🔒 "Heads & decisores"/"Contato do financeiro" e o
+   faturamento presumido auto-preenche a estimativa de crédito. O mapeamento em
+   `proxy/local-proxy.py` (`_mapear_econodata`) é defensivo — ajustar com a
+   resposta real do plano. Substitui o Speedio como fonte premium recomendada.
+
 ## Pontos de extensão prováveis
 
 Se o usuário pedir para evoluir, esses são os caminhos esperados:

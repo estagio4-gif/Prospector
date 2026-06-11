@@ -52,6 +52,7 @@ def _load_token(env_name, filename):
 PORT = int(os.environ.get("PROXY_PORT", "8787"))
 PORTAL_TOKEN = _load_token("PORTAL_TOKEN", "portal_token.txt")
 JUSBRASIL_TOKEN = _load_token("JUSBRASIL_TOKEN", "jusbrasil_token.txt")
+ECONODATA_TOKEN = _load_token("ECONODATA_TOKEN", "econodata_token.txt")
 
 CGU_BASE = "https://api.portaldatransparencia.gov.br"
 CGU_PATHS = {
@@ -61,12 +62,26 @@ CGU_PATHS = {
     "/api-de-dados/contratos/cpf-cnpj",
 }
 JUSBRASIL_ENDPOINT = "https://api.jusbrasil.com.br/v2/lawsuits/search"  # ajuste conforme a doc
+ECONODATA_ENDPOINT = "https://api.econodata.com.br/ecdt-api/v3/companies"
 
 
 def _fetch(url, headers):
     req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=20) as r:
         return r.status, r.read().decode("utf-8", "replace")
+
+
+def _post(url, headers, body_obj):
+    data = json.dumps(body_obj).encode("utf-8")
+    h = dict(headers); h["Content-Type"] = "application/json"
+    req = urllib.request.Request(url, data=data, headers=h, method="POST")
+    with urllib.request.urlopen(req, timeout=25) as r:
+        return r.status, r.read().decode("utf-8", "replace")
+
+
+def _fmt_cnpj(d):
+    d = "".join(ch for ch in str(d) if ch.isdigit())
+    return f"{d[0:2]}.{d[2:5]}.{d[5:8]}/{d[8:12]}-{d[12:14]}" if len(d) == 14 else d
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -123,6 +138,26 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"error": "Falha Jusbrasil", "detalhe": str(e)}, 502)
             return
 
+        # ---- Enriquecimento premium (Econodata) ----
+        if path == "/econodata":
+            params = dict(p.split("=", 1) for p in qs.split("&") if "=" in p)
+            cnpj = "".join(ch for ch in params.get("cnpj", "") if ch.isdigit())
+            if not ECONODATA_TOKEN:
+                return self._json({"erro": "ECONODATA_TOKEN nao configurado no proxy."})
+            try:
+                status, body = _post(
+                    ECONODATA_ENDPOINT,
+                    {"x-api-token": ECONODATA_TOKEN, "Accept": "application/json"},
+                    [_fmt_cnpj(cnpj)],
+                )
+                raw = json.loads(body)
+                self._json(_mapear_econodata(raw))
+            except urllib.error.HTTPError as e:
+                self._json({"erro": f"Econodata HTTP {e.code}"}, e.code)
+            except Exception as e:
+                self._json({"erro": "Falha Econodata", "detalhe": str(e)}, 502)
+            return
+
         self._json({"error": "rota nao suportada"}, 404)
 
     def log_message(self, *a):  # silencia o log ruidoso
@@ -164,9 +199,74 @@ def _mapear_jusbrasil(d, cnpj):
     }
 
 
+def _mapear_econodata(d):
+    """Normaliza a 1a empresa de {empresas:[...]}. Campos defensivos — ajuste com
+    a resposta real do seu plano (campos de enriquecimento dependem de creditos)."""
+    empresas = d.get("empresas") or d.get("companies") or []
+    if not empresas:
+        return {"erro": "Empresa nao encontrada na Econodata."}
+    e = empresas[0]
+
+    def lista_tel(*chaves):
+        out = []
+        for ch in chaves:
+            v = e.get(ch)
+            if isinstance(v, list):
+                for t in v:
+                    out.append(t if isinstance(t, str) else (t.get("numero") or t.get("telefone") or ""))
+            elif isinstance(v, str):
+                out.append(v)
+        return [x for x in out if x]
+
+    telefones = []
+    for n in [e.get("melhorTelefone"), e.get("segundoMelhorTelefone"), e.get("terceiroMelhorTelefone")]:
+        if n:
+            telefones.append({"numero": n, "assertividade": "alta"})
+    for n in lista_tel("telefonesAltaAssertividade"):
+        telefones.append({"numero": n, "assertividade": "alta"})
+    for n in lista_tel("telefonesMediaAssertividade"):
+        telefones.append({"numero": n, "assertividade": "media"})
+
+    emails = []
+    for em in (e.get("emails") or []):
+        if isinstance(em, str):
+            emails.append({"email": em, "assertividade": ""})
+        elif isinstance(em, dict):
+            emails.append({"email": em.get("email") or "", "assertividade": em.get("assertividade") or ""})
+
+    decisores = []
+    for p in (e.get("decisores") or e.get("cargos") or []):
+        if not isinstance(p, dict):
+            continue
+        decisores.append({
+            "nome": p.get("nome") or p.get("name") or "",
+            "cargo": p.get("tipoCargo") or p.get("cargo") or "",
+            "nivel": p.get("nivelDecisao") or p.get("nivel") or "",
+            "linkedin": p.get("linkedin") or (p.get("redeSocial") or {}).get("linkedin") or "",
+            "foto": p.get("urlFoto") or "",
+        })
+
+    pat = e.get("pat") or {}
+    return {
+        "razaoSocial": e.get("razaoSocial") or "",
+        "nomeFantasia": e.get("nomeFantasia") or "",
+        "melhorTelefone": e.get("melhorTelefone") or "",
+        "telefones": telefones,
+        "emails": emails,
+        "emailReceita": e.get("emailReceitaFederal") or "",
+        "decisores": decisores,
+        "faturamentoPresumido": e.get("faturamentoAnualPresumido") or e.get("faturamentoPresumido") or None,
+        "funcionariosEstimados": e.get("quantidadeFuncionarios") or e.get("qtdFuncionariosEstimada") or None,
+        "porteEstimado": e.get("porteEstimado") or "",
+        "capitalSocial": e.get("capitalSocial") or None,
+        "pat": {"funcionarios": pat.get("funcionarios"), "email": pat.get("email"), "telefone": pat.get("telefone")},
+    }
+
+
 if __name__ == "__main__":
     print(f"Proxy local em http://localhost:{PORT}")
     print(f"  Transparencia: {'OK (token presente)' if PORTAL_TOKEN else 'SEM token (defina PORTAL_TOKEN)'}")
     print(f"  Jusbrasil:     {'OK (token presente)' if JUSBRASIL_TOKEN else 'sem token (rota devolve vazio)'}")
-    print("  No app, cole http://localhost:%d nos dois campos de proxy." % PORT)
+    print(f"  Econodata:     {'OK (token presente)' if ECONODATA_TOKEN else 'sem token (rota devolve erro)'}")
+    print("  No app, cole http://localhost:%d nos campos de proxy." % PORT)
     ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
