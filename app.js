@@ -29,6 +29,7 @@
   const transpProxyInput = $("transpProxyInput");
   const procProxyInput = $("procProxyInput");
   const econoProxyInput = $("econoProxyInput");
+  const limparCacheBtn = $("limparCache");
 
   const btnMetricas = $("btnMetricas");
   const metricasModal = $("metricasModal");
@@ -128,6 +129,27 @@
     fecharModal();
     setStatus("Configurações salvas.", false);
     setTimeout(() => statusBox.classList.add("hidden"), 1500);
+  });
+
+  // ---------- Limpar cache de consultas ----------
+  // Apaga só os dados em cache; preserva config (chaves, proxies, tema) e métricas.
+  function limparCacheConsultas() {
+    const preservar = new Set([
+      "prosp_anthropic_key", "prosp_usar_ia", "prosp_theme",
+      "prosp_transp_proxy", "prosp_proc_proxy", "prosp_econo_proxy",
+      "prosp_metrics",
+    ]);
+    let n = 0;
+    Object.keys(localStorage).forEach((k) => {
+      if (k.startsWith("prosp_") && !preservar.has(k)) { localStorage.removeItem(k); n++; }
+    });
+    return n;
+  }
+  if (limparCacheBtn) limparCacheBtn.addEventListener("click", () => {
+    const n = limparCacheConsultas();
+    const o = limparCacheBtn.innerHTML;
+    limparCacheBtn.innerHTML = `✓ ${n} item(ns) de cache limpo(s)`;
+    setTimeout(() => { limparCacheBtn.innerHTML = o; }, 1800);
   });
 
   // ---------- Modal de métricas (piloto) ----------
