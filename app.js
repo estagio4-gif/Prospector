@@ -504,6 +504,55 @@
     return `${factsHtml}${cards.length ? `<div class="econo-grid">${cards.join("")}</div>` : ""}`;
   }
 
+  // Site + redes sociais — não depende do whois (que costuma vir vazio e mostra
+  // o titular do registro, às vezes uma agência). Usa site da Econodata + domínio
+  // do e-mail + deep-links de busca.
+  function renderSiteRedes(contexto, econodata) {
+    const nome = contexto.nomeFantasia || contexto.razaoSocial || "";
+    const sites = new Set();
+    if (econodata && Array.isArray(econodata.sites)) econodata.sites.forEach((s) => s && sites.add(s));
+
+    // Domínio do e-mail (cadastral + Econodata), excluindo provedores genéricos.
+    const provGen = /(gmail|hotmail|outlook|yahoo|bol|uol|terra|icloud|live|msn)\./i;
+    const emails = [];
+    if (contexto.contato) {
+      (contexto.contato.emails || []).forEach((e) => emails.push(e));
+      if (contexto.contato.email) emails.push(contexto.contato.email);
+    }
+    if (econodata && econodata.emails) econodata.emails.forEach((e) => emails.push(e.email));
+    emails.forEach((em) => {
+      const dom = String(em || "").split("@")[1];
+      if (dom && !provGen.test(dom)) sites.add(dom.toLowerCase().trim());
+    });
+
+    const siteList = Array.from(sites)
+      .map((s) => s.replace(/^https?:\/\/(www\.)?/, "").replace(/\/.*$/, "").trim())
+      .filter(Boolean);
+    const siteUnique = Array.from(new Set(siteList)).slice(0, 5);
+
+    const sitesHtml = siteUnique.length
+      ? siteUnique.map((s) => `<div class="contato-valor"><a href="https://${escapeHtml(s)}" target="_blank" rel="noopener">${escapeHtml(s)} ↗</a></div>`).join("")
+      : `<p class="hint">Site não identificado em fontes diretas — use os botões de busca.</p>`;
+
+    const r = (econodata && econodata.redes) || {};
+    const q = encodeURIComponent(nome);
+    const btns = [];
+    btns.push(`<a class="rede-btn" href="${escapeHtml(r.linkedin || `https://www.linkedin.com/search/results/companies/?keywords=${q}`)}" target="_blank" rel="noopener">in LinkedIn</a>`);
+    btns.push(`<a class="rede-btn" href="${escapeHtml(r.instagram || `https://www.google.com/search?q=${q}+site:instagram.com`)}" target="_blank" rel="noopener">◎ Instagram</a>`);
+    if (r.facebook) btns.push(`<a class="rede-btn" href="${escapeHtml(r.facebook)}" target="_blank" rel="noopener">f Facebook</a>`);
+    btns.push(`<a class="rede-btn" href="https://www.google.com/search?q=${q}" target="_blank" rel="noopener">G Buscar</a>`);
+
+    return `
+      <div class="contato-card">
+        <div class="contato-icon">🌐</div>
+        <div class="contato-body">
+          <div class="contato-label">Site${siteUnique.length > 1 ? "s" : ""}</div>
+          ${sitesHtml}
+        </div>
+      </div>
+      <div class="rede-row">${btns.join("")}</div>`;
+  }
+
   // ---------- Renderização do relatório ----------
   function renderRelatorio(contexto, teses, narrativa, risco, whois, transparencia, processos, econodata) {
     const top = teses.slice(0, 8);
@@ -618,8 +667,8 @@
         </section>
 
         <section class="report-section">
-          <h4>Domínio web <span style="color: var(--muted); font-weight: 500; text-transform: none; letter-spacing: 0; font-size: 11.5px;">(Registro.br)</span></h4>
-          ${renderDominio(whois)}
+          <h4>Site &amp; presença online <span style="color: var(--muted); font-weight: 500; text-transform: none; letter-spacing: 0; font-size: 11.5px;">(Econodata + e-mail + busca)</span></h4>
+          ${renderSiteRedes(contexto, econodata)}
         </section>
 ${transparencia ? `
         <section class="report-section">

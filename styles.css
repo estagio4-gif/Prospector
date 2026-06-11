@@ -843,6 +843,21 @@ input:focus, textarea:focus {
 .econo-decisor a { color: var(--accent); border-bottom: 1px dashed var(--accent); }
 .econo-decisor a:hover { text-decoration: none; opacity: .8; }
 
+/* Botões de redes / busca */
+.rede-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.rede-btn {
+  display: inline-block;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  text-decoration: none;
+}
+.rede-btn:hover { border-color: var(--accent); color: var(--accent); }
+
 /* ===== Domínio (whois) ===== */
 .dominio-card {
   display: flex;

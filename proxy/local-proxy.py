@@ -219,6 +219,33 @@ def _funcionarios_txt(txt):
     return s
 
 
+def _rank_cargo(cargo):
+    """Senioridade do cargo (maior = mais decisor) — para ordenar decisores.
+    Siglas (CEO/CFO/COO...) sao casadas com espaco ao redor para nao pegar
+    dentro de palavras (ex.: 'COO' dentro de 'COORDENADOR')."""
+    c = (cargo or "").upper()
+    p = " " + c + " "
+    if any(a in p for a in (" CEO ", " CFO ", " COO ", " CTO ", " CMO ", " CIO ")) or \
+       any(k in c for k in ("PRESIDENT", "FUNDADOR", "TITULAR", "PROPRIET", "SÓCIO", "SOCIO")):
+        return 5
+    if "DIRETOR" in c or "DIRETORA" in c:
+        return 4
+    if "SUPERINTEND" in c or "CHEFE" in c or "HEAD" in c:
+        return 3
+    if "GERENTE" in c or "MANAGER" in c:
+        return 2
+    if "COORDEN" in c or "SUPERVIS" in c:
+        return 1
+    return 0
+
+
+def _norm_url(v):
+    if not v:
+        return ""
+    v = str(v)
+    return v if v.startswith("http") else "https://" + v
+
+
 def _mapear_econodata(d):
     """Normaliza a 1a empresa de {empresas:[...]} para o formato do app.
     Campos confirmados com a resposta real da API v3."""
@@ -266,6 +293,24 @@ def _mapear_econodata(d):
             "linkedin": link,
             "foto": p.get("url_foto") or "",
         })
+    # Ordena por senioridade (Diretor/C-level no topo) — evita vir por ordem de nome.
+    decisores.sort(key=lambda x: -_rank_cargo(x["cargo"]))
+
+    # Sites (lista, deduplicada) e redes sociais (objeto).
+    sites, vsite = [], set()
+    for s in [e.get("melhorSite"), e.get("segundoMelhorSite")] + (e.get("sites") or []):
+        if isinstance(s, str) and s.strip():
+            sl = s.strip().lower()
+            if sl not in vsite:
+                vsite.add(sl)
+                sites.append(sl)
+    rs = e.get("redesSociais") or {}
+    redes = {
+        "linkedin": _norm_url(rs.get("linkedin")),
+        "instagram": _norm_url(rs.get("instagram")),
+        "facebook": _norm_url(rs.get("facebook")),
+        "whatsapp": _norm_url(rs.get("whatsapp")),
+    }
 
     # setorAmigavel pode vir como lista de {setor_amigavel: "..."}.
     setor = e.get("setorAmigavel")
@@ -291,6 +336,8 @@ def _mapear_econodata(d):
         "funcionariosTexto": _funcionarios_txt(e.get("quantidadeFuncionarios") or e.get("qtdFuncionariosEstimada")),
         "porteEstimado": e.get("porteEstimado") or "",
         "capitalSocial": e.get("capitalSocial") or None,
+        "sites": sites,
+        "redes": redes,
         "pat": {"funcionarios": pat.get("funcionarios"), "email": pat.get("email"), "telefone": pat.get("telefone")},
     }
 
