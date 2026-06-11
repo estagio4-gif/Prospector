@@ -18,20 +18,33 @@ no `index.html`. Comunicação entre módulos via `window.{NAMESPACE}`
 (simulação de módulos para evitar bundler).
 
 ```
-index.html        Interface e modal de configurações
+index.html        Interface, modais (config, métricas)
 styles.css        Visual jurídico-corporativo, responsivo
-cnaes.js          Mapeamento CNAE → seção → perfil tributário (lookup O(1))
-teses.js          Catálogo de teses tributárias + funções de scoring
-engine.js         Validação, inferência de regime, ranking de teses, contexto
-api.js            BrasilAPI + fontes grátis de telefone + whois + cache 24h
-transparencia.js  Portal da Transparência (CGU) via proxy: sanções + contratos
+util.js           Helpers de formatação/escape (window.UTIL)
+cnaes.js          CNAE → seção → perfil tributário (+ perfilCombinado)
+juntas.js         Mapa das 27 Juntas Comerciais por UF (window.JUNTAS)
+teses.js          Catálogo de teses + funções de scoring (window.TESES)
+engine.js         NÚCLEO: CNPJ, regime, contexto, scoring, crédito, resumoIA
+contato.js        Telefones + contato cadastral (→ window.ENGINE)
+analise.js        Red flags + Transparência + processos (→ window.ENGINE)
+api.js            Cadastro (5 fontes c/ fallback) + telefones + whois
+transparencia.js  Portal da Transparência (CGU) via proxy (window.TRANSPARENCIA)
+processos.js      Litígio/Jusbrasil via proxy (window.PROCESSOS)
+econodata.js      Enriquecimento premium via proxy (window.ECONODATA)
+metricas.js       Métricas de uso anônimas (window.METRICAS)
+render.js         Monta o HTML do relatório (window.RENDER.relatorio)
 ai.js             Chamada Claude Haiku + fallback offline (template)
-app.js            Orquestrador: DOM, fluxo, renderização do relatório
-proxy/            Cloudflare Worker que faz proxy da API da CGU (token + CORS)
+app.js            Orquestrador: DOM, fluxo, estado, binding (sem render/HTML)
+proxy/            Proxies (local Python + Cloudflare Workers): token + CORS
 ```
 
+`engine.js`, `contato.js` e `analise.js` contribuem para o MESMO `window.ENGINE`
+via `Object.assign` (funções globais, chamadas resolvidas em runtime). `app.js`
+não monta mais HTML — chama `window.RENDER.relatorio()` e faz só o binding.
+
 Ordem de carregamento (importante):
-`cnaes → teses → engine → api → transparencia → ai → app`.
+`util → cnaes → juntas → teses → engine → contato → analise → api →
+transparencia → processos → econodata → metricas → render → ai → app`.
 
 ## Convenções
 
