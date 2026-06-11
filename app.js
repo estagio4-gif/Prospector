@@ -492,9 +492,11 @@
     }
 
     const facts = [];
-    if (e.faturamentoPresumido) facts.push(`<div class="fact"><div class="fact-label">Faturamento presumido</div><div class="fact-value">${fmtBRL(Number(e.faturamentoPresumido))}</div></div>`);
-    if (e.funcionariosEstimados) facts.push(`<div class="fact"><div class="fact-label">Funcionários (estim.)</div><div class="fact-value">${escapeHtml(String(e.funcionariosEstimados))}</div></div>`);
+    if (e.faturamentoTexto) facts.push(`<div class="fact"><div class="fact-label">Faturamento presumido</div><div class="fact-value">${escapeHtml(e.faturamentoTexto)}</div></div>`);
+    if (e.funcionariosTexto) facts.push(`<div class="fact"><div class="fact-label">Funcionários (estim.)</div><div class="fact-value">${escapeHtml(e.funcionariosTexto)}</div></div>`);
     if (e.porteEstimado) facts.push(`<div class="fact"><div class="fact-label">Porte estimado</div><div class="fact-value">${escapeHtml(e.porteEstimado)}</div></div>`);
+    if (e.regimeTributario) facts.push(`<div class="fact"><div class="fact-label">Regime tributário</div><div class="fact-value">${escapeHtml(e.regimeTributario)}</div></div>`);
+    if (e.setorAmigavel) facts.push(`<div class="fact"><div class="fact-label">Setor</div><div class="fact-value">${escapeHtml(e.setorAmigavel)}</div></div>`);
     if (e.pat && e.pat.funcionarios) facts.push(`<div class="fact"><div class="fact-label">PAT — funcionários</div><div class="fact-value">${escapeHtml(String(e.pat.funcionarios))}</div></div>`);
     const factsHtml = facts.length ? `<div class="fact-grid">${facts.join("")}</div>` : "";
 
@@ -859,9 +861,10 @@ ${(econodata && !econodata.erro) ? `
       }
 
       const econodata = await econoPromise;
-      // Se a Econodata trouxe faturamento e o usuário não informou, usa para a estimativa de crédito.
-      if (econodata && econodata.faturamentoPresumido && !contexto.faturamentoInformado) {
-        contexto.faturamentoInformado = Number(econodata.faturamentoPresumido) || 0;
+      // Se a Econodata trouxe faturamento (faixa) e o usuário não informou, usa o
+      // limite inferior (faturamentoNum) para a estimativa de crédito.
+      if (econodata && econodata.faturamentoNum && !contexto.faturamentoInformado) {
+        contexto.faturamentoInformado = Number(econodata.faturamentoNum) || 0;
       }
 
       hideStatus();

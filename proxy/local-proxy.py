@@ -199,64 +199,96 @@ def _mapear_jusbrasil(d, cnpj):
     }
 
 
+def _faturamento_num(txt):
+    """Extrai o limite inferior de uma faixa textual ('R$ 1.000.000.001 a R$ ...')."""
+    if not txt:
+        return None
+    primeiro = str(txt).split(" a ")[0]
+    digs = "".join(ch for ch in primeiro if ch.isdigit())
+    return int(digs) if digs else None
+
+
+def _funcionarios_txt(txt):
+    """Limpa o sentinela 999999999 da faixa de funcionarios ('de 5000 a 999999999' -> '5.000+')."""
+    if not txt:
+        return None
+    s = str(txt)
+    if "999999999" in s:
+        d = "".join(ch for ch in s.split(" a ")[0] if ch.isdigit())
+        return (f"{int(d):,}".replace(",", ".") + "+") if d else s
+    return s
+
+
 def _mapear_econodata(d):
-    """Normaliza a 1a empresa de {empresas:[...]}. Campos defensivos — ajuste com
-    a resposta real do seu plano (campos de enriquecimento dependem de creditos)."""
+    """Normaliza a 1a empresa de {empresas:[...]} para o formato do app.
+    Campos confirmados com a resposta real da API v3."""
     empresas = d.get("empresas") or d.get("companies") or []
     if not empresas:
         return {"erro": "Empresa nao encontrada na Econodata."}
     e = empresas[0]
 
-    def lista_tel(*chaves):
-        out = []
-        for ch in chaves:
-            v = e.get(ch)
-            if isinstance(v, list):
-                for t in v:
-                    out.append(t if isinstance(t, str) else (t.get("numero") or t.get("telefone") or ""))
-            elif isinstance(v, str):
-                out.append(v)
-        return [x for x in out if x]
+    # Telefones por assertividade (alta/media/baixa), deduplicados.
+    telefones, vistos = [], set()
+    for chave, nivel in [("telefonesAltaAssertividade", "alta"),
+                         ("telefonesMediaAssertividade", "media"),
+                         ("telefonesBaixaAssertividade", "baixa")]:
+        for n in (e.get(chave) or []):
+            if n and n not in vistos:
+                vistos.add(n)
+                telefones.append({"numero": n, "assertividade": nivel})
 
-    telefones = []
-    for n in [e.get("melhorTelefone"), e.get("segundoMelhorTelefone"), e.get("terceiroMelhorTelefone")]:
-        if n:
-            telefones.append({"numero": n, "assertividade": "alta"})
-    for n in lista_tel("telefonesAltaAssertividade"):
-        telefones.append({"numero": n, "assertividade": "alta"})
-    for n in lista_tel("telefonesMediaAssertividade"):
-        telefones.append({"numero": n, "assertividade": "media"})
+    # E-mails: dos contatos (socios) + Receita Federal, deduplicados.
+    emails, vmail = [], set()
+    for c in (e.get("contatos") or []):
+        for em in (c.get("email") or []):
+            if em and em not in vmail:
+                vmail.add(em)
+                emails.append({"email": em, "assertividade": c.get("qualificacao") or ""})
+    er = e.get("emailReceitaFederal") or ""
+    if er and er not in vmail:
+        emails.append({"email": er, "assertividade": "Receita"})
 
-    emails = []
-    for em in (e.get("emails") or []):
-        if isinstance(em, str):
-            emails.append({"email": em, "assertividade": ""})
-        elif isinstance(em, dict):
-            emails.append({"email": em.get("email") or "", "assertividade": em.get("assertividade") or ""})
-
+    # Decisores: nome, cargos[], redes_sociais -> LinkedIn.
     decisores = []
-    for p in (e.get("decisores") or e.get("cargos") or []):
+    for p in (e.get("decisores") or []):
         if not isinstance(p, dict):
             continue
+        cargos = p.get("cargos") or []
+        link = ""
+        for r in (p.get("redes_sociais") or []):
+            if "linkedin" in str(r.get("nm_rede_social", "")).lower():
+                u = r.get("url") or ""
+                link = u if u.startswith("http") else (("https://" + u) if u else "")
         decisores.append({
-            "nome": p.get("nome") or p.get("name") or "",
-            "cargo": p.get("tipoCargo") or p.get("cargo") or "",
-            "nivel": p.get("nivelDecisao") or p.get("nivel") or "",
-            "linkedin": p.get("linkedin") or (p.get("redeSocial") or {}).get("linkedin") or "",
-            "foto": p.get("urlFoto") or "",
+            "nome": p.get("nome") or "",
+            "cargo": ", ".join(cargos) if isinstance(cargos, list) else str(cargos or ""),
+            "nivel": "",
+            "linkedin": link,
+            "foto": p.get("url_foto") or "",
         })
 
+    # setorAmigavel pode vir como lista de {setor_amigavel: "..."}.
+    setor = e.get("setorAmigavel")
+    if isinstance(setor, list) and setor:
+        setor = setor[0].get("setor_amigavel") if isinstance(setor[0], dict) else setor[0]
+    if not isinstance(setor, str):
+        setor = ""
+
     pat = e.get("pat") or {}
+    fat_txt = e.get("faturamentoAnualPresumido") or e.get("faturamentoPresumido") or ""
     return {
         "razaoSocial": e.get("razaoSocial") or "",
         "nomeFantasia": e.get("nomeFantasia") or "",
+        "setorAmigavel": setor,
+        "regimeTributario": e.get("regime_tributario") or "",
         "melhorTelefone": e.get("melhorTelefone") or "",
         "telefones": telefones,
         "emails": emails,
-        "emailReceita": e.get("emailReceitaFederal") or "",
+        "emailReceita": er,
         "decisores": decisores,
-        "faturamentoPresumido": e.get("faturamentoAnualPresumido") or e.get("faturamentoPresumido") or None,
-        "funcionariosEstimados": e.get("quantidadeFuncionarios") or e.get("qtdFuncionariosEstimada") or None,
+        "faturamentoTexto": fat_txt,
+        "faturamentoNum": _faturamento_num(fat_txt),
+        "funcionariosTexto": _funcionarios_txt(e.get("quantidadeFuncionarios") or e.get("qtdFuncionariosEstimada")),
         "porteEstimado": e.get("porteEstimado") or "",
         "capitalSocial": e.get("capitalSocial") or None,
         "pat": {"funcionarios": pat.get("funcionarios"), "email": pat.get("email"), "telefone": pat.get("telefone")},
