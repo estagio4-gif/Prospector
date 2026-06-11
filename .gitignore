@@ -37,3 +37,7 @@ scratch/
 dist/
 build/
 .cache/
+
+# Python cache
+__pycache__/
+*.pyc
